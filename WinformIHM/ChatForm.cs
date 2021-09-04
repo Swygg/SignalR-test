@@ -10,7 +10,7 @@ namespace WinformIHM
     public partial class ChatForm : Form
     {
         private HubConnection _connection;
-        private Claim _claim;
+        private string _jwt;
 
         public ChatForm()
         {
@@ -39,9 +39,9 @@ namespace WinformIHM
             });
 
 
-            _connection.On<string, string>("GetClaim", (claimName, claimValue) =>
+            _connection.On<string>("GetJwt", (jwt) =>
             {
-                _claim = new Claim(claimName, claimValue);
+                _jwt = jwt;
             });
 
             _connection.Closed += async (error) =>
@@ -53,7 +53,7 @@ namespace WinformIHM
             try
             {
                 await _connection.StartAsync();
-                await _connection.InvokeAsync("GetClaim", tb_Pseudo.Text, tb_Password.Text);
+                await _connection.InvokeAsync("GetJwt", tb_Pseudo.Text, tb_Password.Text);
                 GiveAccess();
                 this.AcceptButton = btn_Send;
                 tb_Message.Focus();
@@ -71,16 +71,16 @@ namespace WinformIHM
 
         private async void btn_Send_Click(object sender, EventArgs e)
         {
-            await Send(tb_Pseudo.Text, tb_Message.Text);
-            tb_Message.Text = "";
+            await Send(this._jwt, tb_Pseudo.Text, tb_Message.Text);
+            tb_Message.ResetText();
             tb_Message.Focus();
         }
 
-        private async Task Send(string sender, string message)
+        private async Task Send(string jwt, string sender, string message)
         {
             try
             {
-                await _connection.InvokeAsync("SendMessage", sender, message);
+                await _connection.InvokeAsync("SendMessage", jwt, sender, message);
             }
             catch (Exception ex)
             {
