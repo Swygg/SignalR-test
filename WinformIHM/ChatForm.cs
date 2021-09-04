@@ -18,6 +18,12 @@ namespace WinformIHM
             RemoveAccess();
         }
 
+        public ChatForm(string userName, string userPassword) : this()
+        {
+            tb_Pseudo.Text = userName;
+            tb_Password.Text = userPassword;
+        }
+
         private async void btn_Connexion_Click(object sender, EventArgs e)
         {
             _connection = new HubConnectionBuilder()
@@ -47,6 +53,29 @@ namespace WinformIHM
                 _jwt = jwt;
             });
 
+
+            _connection.On<string>("Notification", (notification) =>
+            {
+                tb_Chat.Text += notification + Environment.NewLine;
+            });
+
+            _connection.On<string, string>("ReceivePrivateMessage", (user, message) =>
+            {
+                var newMessage = $"{GetDate()} - Message privé de {user} : {message}";
+                tb_Chat.Text += newMessage + Environment.NewLine;
+            });
+
+            _connection.On<string, string, string>("ReceiveGroupMessage", (group, user, message) =>
+            {
+                var newMessage = $"{GetDate()} - Message de '{user}' du group '{group}' : {message}";
+                tb_Chat.Text += newMessage + Environment.NewLine;
+            });
+
+            _connection.On<string>("GetId", (id) =>
+            {
+                tb_myId.Text = id;
+            });
+
             _connection.Closed += async (error) =>
             {
                 await Task.Delay(new Random().Next(0, 5) * 1000);
@@ -57,6 +86,7 @@ namespace WinformIHM
             {
                 await _connection.StartAsync();
                 await _connection.InvokeAsync("GetJwt", tb_Pseudo.Text, tb_Password.Text);
+                await _connection.InvokeAsync("GetId", this._jwt);
                 GiveAccess();
                 this.AcceptButton = btn_Send;
                 tb_Message.Focus();
@@ -74,21 +104,15 @@ namespace WinformIHM
 
         private async void btn_Send_Click(object sender, EventArgs e)
         {
-            await Send(this._jwt, tb_Message.Text);
+            if (tb_TargetId.Text.Length > 0)
+                await _connection.InvokeAsync("SendMessage", this._jwt, tb_Message.Text);
+            else if (tb_GroupeName.Text.Length > 0)
+                await _connection.InvokeAsync("SendGroupMessage", this._jwt, tb_GroupeName.Text, tb_Message.Text);
+            else
+                await _connection.InvokeAsync("SendMessage", this._jwt, tb_Message.Text);
+
             tb_Message.ResetText();
             tb_Message.Focus();
-        }
-
-        private async Task Send(string jwt, string message)
-        {
-            try
-            {
-                await _connection.InvokeAsync("SendMessage", jwt, message);
-            }
-            catch (Exception ex)
-            {
-                MessageBox.Show(ex.Message, "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
-            }
         }
 
         private void RemoveAccess()
@@ -100,6 +124,7 @@ namespace WinformIHM
             tb_Message.Enabled = false;
             btn_Send.Enabled = false;
             btn_Disconnect.Enabled = false;
+            tb_myId.Enabled = false;
         }
 
         private void GiveAccess()
@@ -111,6 +136,7 @@ namespace WinformIHM
             tb_Message.Enabled = true;
             btn_Send.Enabled = true;
             btn_Disconnect.Enabled = true;
+            tb_myId.Enabled = true;
         }
 
         private string GetDate()
