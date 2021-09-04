@@ -29,15 +29,18 @@ namespace WinformIHM
 
             _connection.On<string, string>("ReceiveMessage", (user, message) =>
             {
-                var newMessage = $"{user}: {message}";
+                var newMessage = $"{GetDate()} - {user} : {message}";
                 tb_Chat.Text += newMessage + Environment.NewLine;
             });
 
             _connection.On<string>("NewConnection", (message) =>
             {
-                tb_Chat.Text += message + Environment.NewLine;
+                //tb_Chat.Text += message + Environment.NewLine;
             });
-
+            _connection.On<string>("NewRealConnection", (message) =>
+            {
+                tb_Chat.Text += $"{GetDate()} - {message} {Environment.NewLine}";
+            });
 
             _connection.On<string>("GetJwt", (jwt) =>
             {
@@ -71,16 +74,16 @@ namespace WinformIHM
 
         private async void btn_Send_Click(object sender, EventArgs e)
         {
-            await Send(this._jwt, tb_Pseudo.Text, tb_Message.Text);
+            await Send(this._jwt, tb_Message.Text);
             tb_Message.ResetText();
             tb_Message.Focus();
         }
 
-        private async Task Send(string jwt, string sender, string message)
+        private async Task Send(string jwt, string message)
         {
             try
             {
-                await _connection.InvokeAsync("SendMessage", jwt, sender, message);
+                await _connection.InvokeAsync("SendMessage", jwt, message);
             }
             catch (Exception ex)
             {
@@ -108,6 +111,11 @@ namespace WinformIHM
             tb_Message.Enabled = true;
             btn_Send.Enabled = true;
             btn_Disconnect.Enabled = true;
+        }
+
+        private string GetDate()
+        {
+            return DateTime.Now.ToString("HH:mm:ss");
         }
     }
 }
